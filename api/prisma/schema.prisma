@@ -25,6 +25,8 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   refreshTokens RefreshToken[]
+  ownedGroups   Group[]        @relation("GroupOwner")
+  memberships   GroupMember[]
 
   @@map("users")
 }
@@ -47,4 +49,48 @@ model RefreshToken {
   @@index([familyId])
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+enum GroupRole {
+  owner
+  member
+
+  @@map("group_role")
+}
+
+/// กลุ่มหารบิล — ลิงก์เชิญใช้ inviteCode (กลุ่มละ 1 code, owner reset ได้)
+model Group {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  // RESTRICT: ลบ user ที่เป็นเจ้าของกลุ่มไม่ได้ (กันประวัติค่าใช้จ่ายของทั้งกลุ่มหาย)
+  ownerId    String   @map("owner_id") @db.Uuid
+  // PromptPay รองรับแค่บาท — API รับแค่ THB ตอนนี้ แต่มีคอลัมน์ไว้รองรับอนาคต
+  currency   String   @default("THB")
+  // สุ่ม 128 bit (base64url) — ใครได้ลิงก์ก็เข้าร่วมได้ จึงต้องเดาไม่ได้
+  inviteCode String   @unique @map("invite_code")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner   User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members GroupMember[]
+
+  @@index([ownerId])
+  @@map("groups")
+}
+
+/// สมาชิกของกลุ่ม — PK คู่ (group_id, user_id): DB กันไม่ให้เป็นสมาชิกซ้ำ
+model GroupMember {
+  groupId  String    @map("group_id") @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  role     GroupRole @default(member)
+  joinedAt DateTime  @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  // RESTRICT: ลบ user ที่ยังเป็นสมาชิกกลุ่มไม่ได้ (ประวัติค่าใช้จ่ายอ้างถึงคนนี้)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([groupId, userId])
+  // "กลุ่มของฉัน" ค้นด้วย user_id — PK เริ่มด้วย group_id จึงใช้ค้นแบบนี้ไม่ได้ ต้องมี index แยก
+  @@index([userId])
+  @@map("group_members")
 }
