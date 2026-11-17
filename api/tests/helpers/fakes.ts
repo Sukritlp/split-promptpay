@@ -21,6 +21,7 @@ export function fakeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     authService: unused('authService'),
     usersService: unused('usersService'),
     groupsService: unused('groupsService'),
+    invitesService: unused('invitesService'),
     jwt: unused('jwt'),
     refreshCookie: { sameSite: 'lax', secure: false },
     ...overrides,
