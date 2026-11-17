@@ -8,7 +8,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: '09:00'
+      time: "09:00"
       timezone: Asia/Bangkok
     open-pull-requests-limit: 5
     commit-message:
@@ -27,7 +27,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: '09:00'
+      time: "09:00"
       timezone: Asia/Bangkok
     open-pull-requests-limit: 5
     commit-message:
@@ -47,10 +47,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: '09:00'
+      time: "09:00"
       timezone: Asia/Bangkok
     commit-message:
       prefix: ci
     groups:
       github-actions:
-        patterns: ['*']
+        patterns: ["*"]
