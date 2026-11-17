@@ -99,6 +99,13 @@ npm run dev                # http://localhost:3000 → ต้องเห็น 
 | POST   | `/api/auth/refresh`  | 🍪   | แลก refresh token → `200 { user, accessToken }` + cookie ใหม่ |
 | POST   | `/api/auth/logout`   | 🍪   | ออกจากระบบเฉพาะอุปกรณ์นี้ → `204` (เรียกซ้ำได้) |
 | GET    | `/api/me`            | ✓    | ข้อมูลผู้ใช้ที่ล็อกอินอยู่ → `200 { user }` |
+| POST   | `/api/groups`        | ✓    | สร้างกลุ่ม `{ name, currency? }` → `201 { group }` (ผู้สร้างเป็น owner) |
+| GET    | `/api/groups`        | ✓    | กลุ่มของฉัน (role + จำนวนสมาชิก) → `200 { groups }` |
+| GET    | `/api/groups/:id`    | ✓ สมาชิก | รายละเอียด + รายชื่อสมาชิก → `200 { group }` |
+| GET    | `/api/groups/:id/invite` | ✓ สมาชิก | invite code สำหรับทำลิงก์ `/join/<code>` → `200 { code }` |
+| POST   | `/api/groups/:id/invite/reset` | ✓ owner | ออก code ใหม่ ลิงก์เก่าใช้ไม่ได้ทันที → `200 { code }` |
+| GET    | `/api/invites/:code` | ✓    | preview ก่อนเข้าร่วม → `200 { group: { id, name, memberCount }, alreadyMember }` |
+| POST   | `/api/invites/:code/join` | ✓ | เข้าร่วม → `201 { group }` หรือ `200` ถ้าเป็นสมาชิกอยู่แล้ว |
 
 - ✓ = ต้องส่ง header `Authorization: Bearer <accessToken>` (อายุ 15 นาทีตามค่าเริ่มต้น)
 - 🍪 = ใช้ cookie `refresh_token` ที่ browser แนบมาให้เอง (ต้องเรียกด้วย `credentials: 'include'`)
@@ -155,7 +162,10 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 | 401 | `UNAUTHENTICATED` | ไม่ได้ส่ง token |
 | 401 | `INVALID_TOKEN` | access token ผิด/หมดอายุ → เรียก `/api/auth/refresh` |
 | 401 | `INVALID_REFRESH_TOKEN` | refresh token ใช้ไม่ได้ → ต้องล็อกอินใหม่ |
+| 403 | `FORBIDDEN` | เป็นสมาชิกแต่ไม่มีสิทธิ์ (เช่น member สั่ง reset ลิงก์เชิญ) |
 | 404 | `NOT_FOUND` | ไม่มี route นี้ |
+| 404 | `GROUP_NOT_FOUND` | ไม่มีกลุ่มนี้ **หรือไม่ได้เป็นสมาชิก** (ตอบเหมือนกัน กันการเดา id) |
+| 404 | `INVITE_NOT_FOUND` | ลิงก์เชิญไม่ถูกต้องหรือถูก reset แล้ว |
 | 409 | `EMAIL_TAKEN` | email นี้สมัครแล้ว |
 | 500 | `INTERNAL_ERROR` | bug ฝั่ง server (รายละเอียดอยู่ใน log เท่านั้น) |
 
@@ -195,3 +205,14 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 - Schema อยู่ที่ [api/prisma/schema.prisma](api/prisma/schema.prisma) และ migration อยู่ที่ [api/prisma/migrations/](api/prisma/migrations/)
 - แก้ schema แล้วรัน `npm run db:migrate -- --name <ชื่อการเปลี่ยนแปลง>` เพื่อสร้าง migration ใหม่ แล้ว commit โฟลเดอร์ migration ทุกครั้ง
 - ช่องที่เป็นจำนวนเงินทุกช่องเก็บเป็น **สตางค์ (จำนวนเต็ม)** ห้ามใช้ทศนิยม
+
+### กลุ่มและสมาชิก
+
+| ตาราง | จุดสำคัญ |
+| --- | --- |
+| `groups` | `invite_code` สุ่ม 128 bit (unique) กลุ่มละ 1 code ที่ owner reset ได้ · `currency` default `THB` · ลบ user ที่เป็น owner ไม่ได้ (`RESTRICT`) |
+| `group_members` | **PK คู่ `(group_id, user_id)`** — DB กันเป็นสมาชิกซ้ำ (รวมถึงกดเข้าร่วมพร้อมกัน) · role `owner`/`member` · index `user_id` สำหรับ "กลุ่มของฉัน" · ลบกลุ่มแล้วสมาชิกหายตาม (`CASCADE`) |
+
+- **ตรวจสิทธิ์ใน service** จาก membership ของคนที่เรียก — ไม่ใช่สมาชิกได้ `404` เหมือนไม่มีกลุ่ม (ไม่บอกว่ากลุ่มมีอยู่)
+- รายชื่อสมาชิกไม่มี email
+- ออกจากกลุ่มยังไม่ทำ — เมื่อทำควรเป็น soft leave (`left_at`) เพราะประวัติค่าใช้จ่ายต้องอ้างถึงคนที่ออกไปแล้วได้
