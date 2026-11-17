@@ -1,7 +1,6 @@
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { createApp } from '../../src/app.js';
-import { checkDatabase } from '../../src/db/prisma.js';
+import { buildTestApp } from '../helpers/app.js';
 import { resetDatabase, testPrisma } from '../helpers/db.js';
 
 beforeEach(resetDatabase);
@@ -25,7 +24,7 @@ describe('test database', () => {
   });
 
   it('GET /ready returns 200 against a real database', async () => {
-    const res = await request(createApp({ checkDb: checkDatabase })).get('/ready');
+    const res = await request(buildTestApp().app).get('/ready');
 
     expect(res.status).toBe(200);
   });
