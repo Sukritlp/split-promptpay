@@ -19,7 +19,7 @@ function baseOptions({ sameSite, secure }: RefreshCookieConfig): CookieOptions {
     httpOnly: true, // JavaScript ฝั่ง browser อ่านไม่ได้ → XSS ขโมย token ไม่ได้
     secure: secure || sameSite === 'none',
     sameSite,
-    path: '/auth', // browser แนบ cookie เฉพาะ request ไป /auth/* เท่านั้น
+    path: '/api/auth', // browser แนบ cookie เฉพาะ request ไป /api/auth/* เท่านั้น
   };
 }
 

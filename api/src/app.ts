@@ -19,9 +19,13 @@ export function createApp(deps: AppDeps): Express {
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
-  app.use(createHealthRouter(deps));
-  app.use(createAuthRouter(deps));
-  app.use(createUsersRouter(deps));
+  // ทุก route อยู่ใต้ /api: web (Next.js) rewrite /api/* มาที่นี่ตรงตัว
+  // → path ที่ browser เห็นตรงกับฝั่ง API (สำคัญกับ cookie Path=/api/auth)
+  const api = express.Router();
+  api.use(createHealthRouter(deps));
+  api.use(createAuthRouter(deps));
+  api.use(createUsersRouter(deps));
+  app.use('/api', api);
 
   // ต้องอยู่ท้ายสุด: ไม่มี route ไหนตรง → 404, และ error ทุกตัว → errorHandler
   app.use(notFoundHandler);

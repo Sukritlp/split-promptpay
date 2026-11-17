@@ -22,30 +22,30 @@ function toDevice(res: request.Response): Device {
 }
 
 async function registerDevice(): Promise<Device> {
-  return toDevice(await request(app).post('/auth/register').send(account));
+  return toDevice(await request(app).post('/api/auth/register').send(account));
 }
 
 async function loginDevice(): Promise<Device> {
   return toDevice(
     await request(app)
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: account.email, password: account.password }),
   );
 }
 
 function logout(token?: string) {
-  const req = request(app).post('/auth/logout');
+  const req = request(app).post('/api/auth/logout');
   return token === undefined ? req : req.set('Cookie', refreshCookieHeader(token));
 }
 
 function refresh(token: string) {
-  return request(app).post('/auth/refresh').set('Cookie', refreshCookieHeader(token));
+  return request(app).post('/api/auth/refresh').set('Cookie', refreshCookieHeader(token));
 }
 
 function expectCookieCleared(res: request.Response) {
   const cookie = getRefreshCookie(res);
   expect(cookie?.value).toBe('');
-  expect(cookie?.attributes).toMatchObject({ path: '/auth', httponly: true });
+  expect(cookie?.attributes).toMatchObject({ path: '/api/auth', httponly: true });
   expect(new Date(cookie?.attributes.expires as string).getTime()).toBeLessThan(Date.now());
 }
 
@@ -136,7 +136,7 @@ describe('POST /auth/logout', () => {
     const { refreshToken, accessToken } = await registerDevice();
 
     await logout(refreshToken);
-    const me = await request(app).get('/me').set('Authorization', `Bearer ${accessToken}`);
+    const me = await request(app).get('/api/me').set('Authorization', `Bearer ${accessToken}`);
 
     expect(me.status).toBe(200);
   });

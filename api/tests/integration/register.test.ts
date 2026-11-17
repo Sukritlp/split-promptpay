@@ -10,7 +10,7 @@ const { app, jwt } = buildTestApp();
 const valid = { name: 'Somchai', email: 'somchai@example.com', password: 'correct-horse-1' };
 
 function register(body: object) {
-  return request(app).post('/auth/register').send(body);
+  return request(app).post('/api/auth/register').send(body);
 }
 
 beforeEach(resetDatabase);
