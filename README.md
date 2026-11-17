@@ -60,11 +60,34 @@ npm run dev                # http://localhost:3000/health
 | ------ | ---------------- | ---- | -------- |
 | GET    | `/health`        | –    | liveness: process ยังทำงานอยู่ (ไม่เช็ค DB) |
 | GET    | `/ready`         | –    | readiness: 200 ถ้าต่อ DB ได้, 503 ถ้า DB ล่ม |
-| POST   | `/auth/register` | –    | สมัคร `{ name, email, password }` → `201 { user, accessToken }` |
-| POST   | `/auth/login`    | –    | ล็อกอิน `{ email, password }` → `200 { user, accessToken }` |
+| POST   | `/auth/register` | –    | สมัคร `{ name, email, password }` → `201 { user, accessToken }` + cookie |
+| POST   | `/auth/login`    | –    | ล็อกอิน `{ email, password }` → `200 { user, accessToken }` + cookie |
+| POST   | `/auth/refresh`  | 🍪   | แลก refresh token → `200 { user, accessToken }` + cookie ใหม่ |
+| POST   | `/auth/logout`   | 🍪   | ออกจากระบบเฉพาะอุปกรณ์นี้ → `204` (เรียกซ้ำได้) |
 | GET    | `/me`            | ✓    | ข้อมูลผู้ใช้ที่ล็อกอินอยู่ → `200 { user }` |
 
-Auth ✓ = ต้องส่ง header `Authorization: Bearer <accessToken>` (token อายุ 15 นาทีตามค่าเริ่มต้น)
+- ✓ = ต้องส่ง header `Authorization: Bearer <accessToken>` (อายุ 15 นาทีตามค่าเริ่มต้น)
+- 🍪 = ใช้ cookie `refresh_token` ที่ browser แนบมาให้เอง (ต้องเรียกด้วย `credentials: 'include'`)
+
+### Access token + Refresh token
+
+```
+login/register ─► body: { user, accessToken }      access token (JWT, 15 นาที) → web เก็บใน memory
+                  Set-Cookie: refresh_token=...    refresh token (สุ่ม 256 bit, 30 วัน) → httpOnly cookie
+
+access token หมดอายุ ─► POST /auth/refresh ─► token เก่าถูกยกเลิก + ได้ตัวใหม่ (rotation)
+POST /auth/logout ─► ยกเลิก refresh token ของอุปกรณ์นี้ + ลบ cookie
+```
+
+| ประเด็น | การออกแบบ | เหตุผล |
+| --- | --- | --- |
+| รูปแบบ refresh token | สตริงสุ่ม ไม่ใช่ JWT | ต้องค้น DB ทุกครั้ง จึงยกเลิกได้จริง |
+| เก็บใน DB | SHA-256 ของ token | DB หลุดก็เอาไปใช้แทน token ไม่ได้ (token สุ่ม 256 bit จึงไม่ต้องใช้ hash แบบช้า) |
+| Cookie | `HttpOnly` `Path=/auth` `SameSite=Lax` (+`Secure` บน production) | JS อ่านไม่ได้ (กัน XSS), ส่งเฉพาะ `/auth/*`, กัน CSRF |
+| Rotation | token ใช้ได้ครั้งเดียว | token ที่หลุดไปมีอายุใช้งานสั้น |
+| Reuse detection | ใช้ token เก่าซ้ำ → ยกเลิกทั้ง family | แปลว่า token อาจถูกขโมย: บังคับทั้งคนร้ายและเจ้าของให้ล็อกอินใหม่ |
+| Refresh พร้อมกัน | ตัวที่สองถูกนับเป็นการใช้ซ้ำ (เข้มงวด) | ฝั่ง web ต้องรวม refresh ให้เหลือครั้งเดียว (single-flight) |
+| หลัง logout | access token เดิมยังใช้ได้จนหมดอายุ (≤ 15 นาที) | JWT ตรวจได้โดยไม่ต้องค้น DB แลกกับช่วงเวลาสั้นๆ นี้ |
 
 ### รูปแบบ error
 
@@ -80,7 +103,8 @@ Auth ✓ = ต้องส่ง header `Authorization: Bearer <accessToken>` (t
 | 400 | `BAD_REQUEST` | JSON พัง |
 | 401 | `INVALID_CREDENTIALS` | email หรือรหัสผ่านผิด (ไม่บอกว่าผิดอันไหน) |
 | 401 | `UNAUTHENTICATED` | ไม่ได้ส่ง token |
-| 401 | `INVALID_TOKEN` | token ผิด/หมดอายุ |
+| 401 | `INVALID_TOKEN` | access token ผิด/หมดอายุ → เรียก `/auth/refresh` |
+| 401 | `INVALID_REFRESH_TOKEN` | refresh token ใช้ไม่ได้ → ต้องล็อกอินใหม่ |
 | 404 | `NOT_FOUND` | ไม่มี route นี้ |
 | 409 | `EMAIL_TAKEN` | email นี้สมัครแล้ว |
 | 500 | `INTERNAL_ERROR` | bug ฝั่ง server (รายละเอียดอยู่ใน log เท่านั้น) |
