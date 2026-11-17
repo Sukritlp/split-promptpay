@@ -1,9 +1,10 @@
 import express, { type Express } from 'express';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createAuthRouter, type AuthRouterDeps } from './modules/auth/auth.routes.js';
+import { createUsersRouter, type UsersRouterDeps } from './modules/users/users.routes.js';
 import { createHealthRouter, type HealthDeps } from './routes/health.js';
 
-export type AppDeps = HealthDeps & AuthRouterDeps;
+export type AppDeps = HealthDeps & AuthRouterDeps & UsersRouterDeps;
 
 /**
  * สร้าง Express app โดย "ไม่" เรียก listen()
@@ -18,6 +19,7 @@ export function createApp(deps: AppDeps): Express {
 
   app.use(createHealthRouter(deps));
   app.use(createAuthRouter(deps));
+  app.use(createUsersRouter(deps));
 
   // ต้องอยู่ท้ายสุด: ไม่มี route ไหนตรง → 404, และ error ทุกตัว → errorHandler
   app.use(notFoundHandler);

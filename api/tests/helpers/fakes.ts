@@ -1,7 +1,7 @@
-import type { AuthService } from '../../src/modules/auth/auth.service.js';
+import type { AppDeps } from '../../src/app.js';
 
 /**
- * service ปลอมสำหรับ unit test ที่ "ไม่ควร" เรียก service นี้เลย
+ * dependency ปลอมสำหรับ unit test ที่ "ไม่ควร" เรียก dependency นั้นเลย
  * ถ้าโค้ดเผลอเรียก test จะ fail พร้อมบอกชื่อ method ทันที
  */
 function unused<T extends object>(name: string): T {
@@ -14,4 +14,13 @@ function unused<T extends object>(name: string): T {
   });
 }
 
-export const unusedAuthService = unused<AuthService>('authService');
+/** ประกอบ AppDeps โดยใส่เฉพาะตัวที่ test สนใจ ที่เหลือเป็น unused */
+export function fakeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
+  return {
+    checkDb: () => Promise.reject(new Error('checkDb should not be called in this test')),
+    authService: unused('authService'),
+    usersService: unused('usersService'),
+    jwt: unused('jwt'),
+    ...overrides,
+  };
+}
