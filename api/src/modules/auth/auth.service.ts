@@ -5,8 +5,8 @@
 import { Prisma, type PrismaClient, type User } from '../../generated/prisma/client.js';
 import { HttpError } from '../../lib/http-error.js';
 import type { JwtService } from '../../lib/jwt.js';
-import { hashPassword } from '../../lib/password.js';
-import type { RegisterInput } from './auth.schemas.js';
+import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.js';
+import type { LoginInput, RegisterInput } from './auth.schemas.js';
 
 /** ข้อมูล user ที่ส่งให้ client ได้ — ห้ามมี passwordHash */
 export interface PublicUser {
@@ -24,7 +24,15 @@ export interface AuthResult {
 
 export interface AuthService {
   register(input: RegisterInput): Promise<AuthResult>;
+  login(input: LoginInput): Promise<AuthResult>;
 }
+
+/**
+ * error เดียวกันทุกกรณีที่ล็อกอินไม่ผ่าน (ไม่มี email นี้ / รหัสผิด / บัญชี Google ที่ไม่มีรหัส)
+ * ถ้าแยกข้อความ คนร้ายจะรู้ได้ว่า email ไหนสมัครไว้แล้ว (user enumeration)
+ */
+const invalidCredentials = () =>
+  new HttpError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
 
 export interface AuthServiceDeps {
   prisma: PrismaClient;
@@ -67,6 +75,23 @@ export function createAuthService({ prisma, jwt }: AuthServiceDeps): AuthService
         }
         throw err;
       }
+    },
+
+    async login({ email, password }) {
+      const user = await prisma.user.findUnique({ where: { email } });
+
+      if (!user?.passwordHash) {
+        // ไม่เจอ user หรือเป็นบัญชีที่ไม่มีรหัสผ่าน (สมัครผ่าน Google)
+        // ยัง hash ให้เสียเวลาเท่ากับกรณีรหัสผิด → จับเวลา response แล้วแยกไม่ออก
+        await verifyAgainstDummy(password);
+        throw invalidCredentials();
+      }
+
+      if (!(await verifyPassword(user.passwordHash, password))) {
+        throw invalidCredentials();
+      }
+
+      return issueTokens(user);
     },
   };
 }
