@@ -1,0 +1,124 @@
+# CI: ตรวจ api และ web ทุก PR และทุกครั้งที่ push เข้า main
+# action ทุกตัว pin ด้วย commit SHA (กัน tag ถูกเลื่อนไปชี้โค้ดอื่น) — Dependabot อัปเดตให้
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# push ใหม่เข้า branch/PR เดิม → ยกเลิก run เก่าที่ยังไม่จบ
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# สิทธิ์น้อยที่สุด: CI แค่อ่านโค้ด
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: api
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: api
+
+    services:
+      postgres:
+        # image/เวอร์ชันเดียวกับ docker-compose.yml
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: splitpay
+          POSTGRES_PASSWORD: splitpay
+          POSTGRES_DB: splitpay_test
+        ports:
+          - 5432:5432
+        # รอจน DB พร้อมรับ connection ก่อนเริ่ม steps
+        options: >-
+          --health-cmd "pg_isready -U splitpay -d splitpay_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # ค่าสำหรับ CI เท่านั้น (DB ชั่วคราวใน runner) ไม่ใช่ secret จริง
+      DATABASE_URL: postgresql://splitpay:splitpay@localhost:5432/splitpay_test?schema=public
+      TEST_DATABASE_URL: postgresql://splitpay:splitpay@localhost:5432/splitpay_test?schema=public
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install dependencies (postinstall runs prisma generate)
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Apply migrations to a fresh database
+        run: npm run db:deploy
+
+      # DB นี้สร้างจาก prisma/migrations ล้วนๆ → ถ้าต่างจาก schema.prisma แปลว่าลืมสร้าง migration
+      - name: Check for schema changes without a migration
+        run: npm run db:check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests (real PostgreSQL)
+        run: npm run test:integration
+
+      - name: Build
+        run: npm run build
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+
+    env:
+      API_URL: http://localhost:4000
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
