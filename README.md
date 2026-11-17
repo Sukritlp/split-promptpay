@@ -1,5 +1,7 @@
 # split-promptpay
 
+[![CI](https://github.com/Sukritlp/split-promptpay/actions/workflows/ci.yml/badge.svg)](https://github.com/Sukritlp/split-promptpay/actions/workflows/ci.yml)
+
 เว็บแอปหารบิลในกลุ่มเพื่อน คำนวณการโอนให้น้อยที่สุด และสร้าง QR PromptPay ให้สแกนจ่ายได้ทันที
 
 > รายละเอียดเป้าหมายและฟีเจอร์ทั้งหมดอยู่ที่ [docs/spec.md](docs/spec.md)
@@ -144,6 +146,19 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 - **integration** (`tests/integration/`): ยิง HTTP จริงผ่าน Supertest เข้า PostgreSQL จริง
   - ใช้ DB `splitpay_test` ใน docker-compose (สร้างและ migrate ให้อัตโนมัติ) หรือกำหนดเองด้วย `TEST_DATABASE_URL`
   - ล้างข้อมูลทุกตารางก่อนแต่ละ test และ **ไม่ยอมรัน** ถ้าชื่อ DB ไม่ลงท้ายด้วย `_test` กันลบข้อมูลจริงโดยไม่ตั้งใจ
+
+## CI (GitHub Actions)
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) รันทุก PR และทุกครั้งที่ push เข้า `main` — ต้องผ่านทั้งสอง job ถึงจะ merge ได้
+
+| job | ตรวจอะไร |
+| --- | --- |
+| `api` | format → lint → typecheck → migrate DB ใหม่ → **drift check** → unit test → integration test (PostgreSQL จริงใน service container) → build |
+| `web` | format → lint → typecheck → test → build |
+
+- **Drift check** (`npm run db:check`): เทียบ DB ที่สร้างจาก `prisma/migrations` ล้วนๆ กับ `schema.prisma` — ถ้าแก้ schema แต่ลืมสร้าง migration, CI จะ fail
+- Action ทุกตัว **pin ด้วย commit SHA** (กัน tag ถูกเลื่อนไปชี้โค้ดอื่น) และ [Dependabot](.github/dependabot.yml) เปิด PR อัปเดตให้ทุกวันจันทร์
+- Node เวอร์ชันเดียวกันทั้ง CI และ local อยู่ที่ [.nvmrc](.nvmrc)
 
 ## ฐานข้อมูล
 

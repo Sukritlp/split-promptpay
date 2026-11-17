@@ -1,0 +1,56 @@
+# Dependabot: เปิด PR อัปเดต dependency ทุกสัปดาห์ (CI จะรันให้ทุก PR)
+# รวม minor/patch ไว้ใน PR เดียวต่อโปรเจค เพื่อไม่ให้ PR ท่วม; major แยกเป็นรายตัวเพราะอาจมี breaking change
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Bangkok
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      api-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint 8 ยังไม่รองรับ TypeScript 7 — ล็อกไว้ที่ 6.x ตั้งใจ (ดู PR #1)
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Bangkok
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      web-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # eslint-config-next 16 ยังใช้ eslint 9 — อัป major เมื่อ Next.js รองรับ
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+
+  # อัปเดต commit SHA ของ action ใน .github/workflows ให้ (เพราะ pin ด้วย SHA)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Bangkok
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
