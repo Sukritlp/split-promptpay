@@ -8,14 +8,25 @@
 
 ```
 .
-├── api/                 # Backend: Node.js + TypeScript + Express
+├── api/                 # Backend: Node.js + TypeScript + Express (port 4000)
+├── web/                 # Frontend: Next.js + TypeScript + Tailwind (port 3000)
 ├── docs/                # spec และเอกสารออกแบบ
 └── docker-compose.yml   # PostgreSQL สำหรับ dev
 ```
 
+```
+Browser ──► http://localhost:3000            Next.js (web)
+               │  /api/*  ──rewrite──►  http://localhost:4000/api/*   Express (api) ──► PostgreSQL
+```
+
+browser เรียกแค่ `/api/...` ที่ origin ของเว็บเอง แล้ว Next.js ส่งต่อไปที่ API (ตั้งค่าใน [web/next.config.ts](web/next.config.ts))
+- origin เดียวกัน → **ไม่ต้องตั้ง CORS** และ cookie `SameSite=Lax` ใช้ได้
+- path ไม่ถูกตัด (`/api/...` → `/api/...`) → cookie `Path=/api/auth` ตรงกันทั้งสองฝั่ง
+- URL ของ API ตั้งด้วย `API_URL` (ฝั่ง server เท่านั้น) ซึ่ง rewrites คำนวณ **ตอน build** จึงต้องตั้งก่อน build บน Vercel
+
 ## สิ่งที่ต้องมี
 
-- Node.js 20+
+- Node.js 20.9+
 - npm
 - Docker Desktop (สำหรับ PostgreSQL)
 
@@ -33,7 +44,25 @@ cp .env.example .env       # แล้วตั้ง JWT_ACCESS_SECRET ให�
 npm install                # postinstall จะรัน prisma generate ให้อัตโนมัติ
 npm run db:migrate         # สร้างตารางตาม migration ใน prisma/migrations
 npm run dev                # http://localhost:4000/api/health
+
+# 3) รัน web (อีก terminal หนึ่ง)
+cd web
+npm install
+npm run dev                # http://localhost:3000 → ต้องเห็น "API พร้อมใช้งาน"
 ```
+
+## คำสั่งใน `web/`
+
+| คำสั่ง                 | ทำอะไร                                   |
+| ---------------------- | ---------------------------------------- |
+| `npm run dev`          | Next.js dev server (port 3000)           |
+| `npm run build`        | build สำหรับ production                   |
+| `npm start`            | รันจาก build                              |
+| `npm test`             | Vitest + Testing Library (jsdom)         |
+| `npm run typecheck`    | เช็ค type                                 |
+| `npm run lint`         | ESLint (กฎของ Next.js)                    |
+| `npm run format`       | จัดรูปแบบด้วย Prettier (กฎเดียวกับ api)    |
+| `npm run format:check` | เช็คการจัดรูปแบบ                          |
 
 ## คำสั่งใน `api/`
 
