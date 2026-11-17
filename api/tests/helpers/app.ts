@@ -4,6 +4,7 @@ import { createJwtService } from '../../src/lib/jwt.js';
 import type { RefreshCookieConfig } from '../../src/modules/auth/auth.cookies.js';
 import { createAuthService } from '../../src/modules/auth/auth.service.js';
 import { createSessionService } from '../../src/modules/auth/session.service.js';
+import { createGroupsService } from '../../src/modules/groups/groups.service.js';
 import { createUsersService } from '../../src/modules/users/users.service.js';
 import { TEST_JWT_SECRET } from '../setup/test-env.js';
 import { testPrisma } from './db.js';
@@ -22,10 +23,12 @@ export function buildTestApp(options: TestAppOptions = {}) {
   });
   const authService = createAuthService({ prisma: testPrisma, jwt, sessions });
   const usersService = createUsersService({ prisma: testPrisma });
+  const groupsService = createGroupsService({ prisma: testPrisma });
   const app = createApp({
     checkDb: checkDatabase,
     authService,
     usersService,
+    groupsService,
     jwt,
     refreshCookie: { sameSite: 'lax', secure: false, ...options.refreshCookie },
   });
