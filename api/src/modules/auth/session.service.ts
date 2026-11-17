@@ -31,6 +31,8 @@ export interface SessionService {
   start(userId: string): Promise<IssuedRefreshToken>;
   /** แลก refresh token เก่าเป็นตัวใหม่ — throw 401 INVALID_REFRESH_TOKEN ถ้าใช้ไม่ได้ */
   rotate(rawToken: unknown): Promise<RotatedSession>;
+  /** จบ session ของอุปกรณ์นี้ (ทั้ง family) — เรียกซ้ำ/ส่ง token ขยะมาก็ไม่ error */
+  end(rawToken: unknown): Promise<void>;
 }
 
 export interface SessionServiceDeps {
@@ -122,6 +124,18 @@ export function createSessionService({
       if (outcome.kind === 'invalid') throw invalidRefreshToken();
 
       return { userId: outcome.userId, refresh: outcome.refresh };
+    },
+
+    async end(rawToken) {
+      if (!isWellFormedRefreshToken(rawToken)) return;
+
+      const row = await prisma.refreshToken.findUnique({
+        where: { tokenHash: hashRefreshToken(rawToken) },
+        select: { familyId: true },
+      });
+      // ยกเลิกทั้ง family ไม่ใช่แค่แถวนี้: ถ้า cookie เป็นตัวเก่า (เช่น ถูก rotate ไปแล้ว)
+      // ตัวล่าสุดใน family เดียวกันก็ต้องใช้ไม่ได้ด้วย ไม่งั้น logout ไม่จริง
+      if (row) await revokeFamily(row.familyId);
     },
   };
 }

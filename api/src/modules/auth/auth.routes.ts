@@ -51,5 +51,15 @@ export function createAuthRouter({ authService, refreshCookie }: AuthRouterDeps)
     respondWithSession(res, 200, session);
   });
 
+  /**
+   * ไม่ต้องใช้ access token: อาจหมดอายุไปแล้วตอนกด logout ก็ต้อง logout ได้
+   * ตอบ 204 เสมอ (idempotent) — กดซ้ำหรือไม่มี cookie ก็ไม่ error
+   */
+  router.post('/auth/logout', async (req, res) => {
+    await authService.logout(readRefreshCookie(req));
+    clearRefreshCookie(res, refreshCookie);
+    res.status(204).end();
+  });
+
   return router;
 }

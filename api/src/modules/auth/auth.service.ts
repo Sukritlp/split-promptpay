@@ -30,6 +30,8 @@ export interface AuthService {
   login(input: LoginInput): Promise<AuthSession>;
   /** แลก refresh token (จาก cookie) เป็น access token ใหม่ + refresh token ใหม่ */
   refresh(rawRefreshToken: unknown): Promise<AuthSession>;
+  /** ออกจากระบบเฉพาะอุปกรณ์นี้ */
+  logout(rawRefreshToken: unknown): Promise<void>;
 }
 
 /**
@@ -104,6 +106,10 @@ export function createAuthService({ prisma, jwt, sessions }: AuthServiceDeps): A
 
       const accessToken = await jwt.signAccessToken({ userId: user.id });
       return { user: toPublicUser(user), accessToken, refresh };
+    },
+
+    async logout(rawRefreshToken) {
+      await sessions.end(rawRefreshToken);
     },
   };
 }
