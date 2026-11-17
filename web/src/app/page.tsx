@@ -1,4 +1,5 @@
 import { ApiStatus } from '@/components/api-status';
+import { HomeActions } from '@/components/home-actions';
 
 export default function Home() {
   return (
@@ -9,6 +10,7 @@ export default function Home() {
           หารบิลกับเพื่อน คำนวณว่าใครต้องโอนให้ใครน้อยที่สุด แล้วสแกน QR PromptPay จ่ายได้ทันที
         </p>
       </header>
+      <HomeActions />
       <ApiStatus />
     </main>
   );

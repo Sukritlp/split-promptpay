@@ -120,6 +120,22 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 | Refresh พร้อมกัน | ตัวที่สองถูกนับเป็นการใช้ซ้ำ (เข้มงวด) | ฝั่ง web ต้องรวม refresh ให้เหลือครั้งเดียว (single-flight) |
 | หลัง logout | access token เดิมยังใช้ได้จนหมดอายุ (≤ 15 นาที) | JWT ตรวจได้โดยไม่ต้องค้น DB แลกกับช่วงเวลาสั้นๆ นี้ |
 
+### Auth ฝั่ง web
+
+| หน้า | ใครเข้าได้ |
+| --- | --- |
+| `/register`, `/login` | ยังไม่ล็อกอิน (ล็อกอินแล้วพาไป `?next=` หรือ `/groups`) |
+| `/groups` | ต้องล็อกอิน (ยังไม่ล็อกอินพาไป `/login?next=/groups`) |
+
+- **access token อยู่ใน memory เท่านั้น** ([web/src/lib/auth-client.ts](web/src/lib/auth-client.ts)) ไม่ใช้ `localStorage` เพราะ XSS อ่านได้ — reload แล้วกู้ session ด้วย `POST /api/auth/refresh` (cookie ถูกแนบให้เอง)
+- **`authFetch()`** แนบ `Authorization: Bearer` และถ้าได้ `401 INVALID_TOKEN` จะ refresh แล้วลองใหม่ 1 ครั้ง
+- **Refresh แบบ single-flight** (จำเป็นเพราะ API ใช้ reuse detection แบบเข้มงวด):
+  - ใน tab เดียว: เรียกพร้อมกันกี่ตัวก็ยิงจริงครั้งเดียว — รวมถึง React StrictMode ที่รัน effect 2 รอบตอน dev
+  - ข้าม tab: [Web Locks API](https://developer.mozilla.org/docs/Web/API/Web_Locks_API) ให้ refresh ต่อคิว tab ถัดไปจะได้ cookie ตัวใหม่แล้ว
+- **`?next=` ถูกตรวจก่อนใช้** ([safe-redirect.ts](web/src/lib/safe-redirect.ts)) รับเฉพาะ path ในเว็บ — กัน open redirect (`//evil.com`, `/\evil.com`, `https://…`)
+- การกันหน้า (`RequireAuth`) อยู่ฝั่ง client และเป็นแค่ UX — ข้อมูลจริงอยู่หลัง API ที่ตรวจ token ทุก request
+  (ตรวจฝั่ง server ด้วย `proxy.ts` ไม่ได้ เพราะ cookie มี `Path=/api/auth` จึงไม่ถูกส่งมากับ request ของหน้าเว็บ)
+
 ### รูปแบบ error
 
 ทุก error ตอบเป็น JSON รูปแบบเดียวกัน:

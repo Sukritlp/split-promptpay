@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans_Thai } from 'next/font/google';
+import { AuthProvider } from '@/components/auth/auth-provider';
 import './globals.css';
 
 // ฟอนต์ที่อ่านภาษาไทยได้ดี — next/font ดาวน์โหลดตอน build แล้ว serve เอง (ไม่เรียก Google ตอนใช้งาน)
@@ -17,7 +18,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="th">
-      <body className={`${font.className} bg-gray-50 antialiased`}>{children}</body>
+      <body className={`${font.className} bg-gray-50 antialiased`}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
