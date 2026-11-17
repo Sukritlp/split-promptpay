@@ -4,6 +4,8 @@ import { checkDatabase, prisma } from './db/prisma.js';
 import { createJwtService } from './lib/jwt.js';
 import { createAuthService } from './modules/auth/auth.service.js';
 import { createSessionService } from './modules/auth/session.service.js';
+import { createGroupsService } from './modules/groups/groups.service.js';
+import { createInvitesService } from './modules/groups/invites.service.js';
 import { createUsersService } from './modules/users/users.service.js';
 
 // composition root: จุดเดียวที่ประกอบ dependency จริงเข้าด้วยกัน
@@ -14,11 +16,15 @@ const jwt = createJwtService({
 const sessions = createSessionService({ prisma, ttlDays: env.REFRESH_TOKEN_TTL_DAYS });
 const authService = createAuthService({ prisma, jwt, sessions });
 const usersService = createUsersService({ prisma });
+const groupsService = createGroupsService({ prisma });
+const invitesService = createInvitesService({ prisma });
 
 const app = createApp({
   checkDb: checkDatabase,
   authService,
   usersService,
+  groupsService,
+  invitesService,
   jwt,
   refreshCookie: {
     sameSite: env.COOKIE_SAMESITE,

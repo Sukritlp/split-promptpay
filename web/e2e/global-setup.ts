@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { assertE2eDatabase, E2E } from './env';
 
-const TABLES = ['refresh_tokens', 'users'];
+const TABLES = ['group_members', 'groups', 'refresh_tokens', 'users'];
 
 export default function globalSetup(): void {
   assertE2eDatabase(E2E.databaseUrl);
