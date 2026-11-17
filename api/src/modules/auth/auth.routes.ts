@@ -1,6 +1,12 @@
 import { Router, type Response } from 'express';
+import { HttpError } from '../../lib/http-error.js';
 import { validateBody } from '../../middleware/validate.js';
-import { setRefreshCookie, type RefreshCookieConfig } from './auth.cookies.js';
+import {
+  clearRefreshCookie,
+  readRefreshCookie,
+  setRefreshCookie,
+  type RefreshCookieConfig,
+} from './auth.cookies.js';
 import {
   loginSchema,
   registerSchema,
@@ -31,6 +37,18 @@ export function createAuthRouter({ authService, refreshCookie }: AuthRouterDeps)
 
   router.post('/auth/login', validateBody(loginSchema), async (req, res) => {
     respondWithSession(res, 200, await authService.login(req.body as LoginInput));
+  });
+
+  router.post('/auth/refresh', async (req, res) => {
+    let session: AuthSession;
+    try {
+      session = await authService.refresh(readRefreshCookie(req));
+    } catch (err) {
+      // cookie ใช้ไม่ได้แล้ว → สั่ง browser ลบทิ้ง จะได้ไม่ส่งมาซ้ำ
+      if (err instanceof HttpError && err.status === 401) clearRefreshCookie(res, refreshCookie);
+      throw err;
+    }
+    respondWithSession(res, 200, session);
   });
 
   return router;

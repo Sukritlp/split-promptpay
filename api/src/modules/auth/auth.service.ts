@@ -8,7 +8,11 @@ import type { JwtService } from '../../lib/jwt.js';
 import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.js';
 import { toPublicUser, type PublicUser } from '../users/public-user.js';
 import type { LoginInput, RegisterInput } from './auth.schemas.js';
-import type { IssuedRefreshToken, SessionService } from './session.service.js';
+import {
+  invalidRefreshToken,
+  type IssuedRefreshToken,
+  type SessionService,
+} from './session.service.js';
 
 /** ส่วนที่ส่งใน response body */
 export interface AuthResult {
@@ -24,6 +28,8 @@ export interface AuthSession extends AuthResult {
 export interface AuthService {
   register(input: RegisterInput): Promise<AuthSession>;
   login(input: LoginInput): Promise<AuthSession>;
+  /** แลก refresh token (จาก cookie) เป็น access token ใหม่ + refresh token ใหม่ */
+  refresh(rawRefreshToken: unknown): Promise<AuthSession>;
 }
 
 /**
@@ -87,6 +93,17 @@ export function createAuthService({ prisma, jwt, sessions }: AuthServiceDeps): A
       }
 
       return startSession(user);
+    },
+
+    async refresh(rawRefreshToken) {
+      const { userId, refresh } = await sessions.rotate(rawRefreshToken);
+
+      // ปกติไม่เกิด (ลบ user แล้ว token ถูกลบตามด้วย ON DELETE CASCADE) แต่กันไว้
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw invalidRefreshToken();
+
+      const accessToken = await jwt.signAccessToken({ userId: user.id });
+      return { user: toPublicUser(user), accessToken, refresh };
     },
   };
 }
