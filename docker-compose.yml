@@ -1,0 +1,27 @@
+# ใช้สำหรับ dev บนเครื่องตัวเอง: `docker compose up -d`
+# ค่า user/password อ่านจาก .env ที่ root (คัดลอกจาก .env.example) ถ้าไม่มีจะใช้ค่า default ด้านล่าง
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: split-promptpay-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-splitpay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-splitpay}
+      POSTGRES_DB: ${POSTGRES_DB:-splitpay}
+      TZ: Asia/Bangkok
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # named volume: ข้อมูลไม่หายตอน `docker compose down` (หายเมื่อใส่ -v เท่านั้น)
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # ให้ service อื่น/CI รอจน DB พร้อมรับ connection จริง ไม่ใช่แค่ container start
+      # $$ = escape ให้ compose ส่ง $ ไปให้ shell ใน container ขยายเอง
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db-data:
