@@ -21,6 +21,9 @@ updates:
       # typescript-eslint 8 ยังไม่รองรับ TypeScript 7 — ล็อกไว้ที่ 6.x ตั้งใจ (ดู PR #1)
       - dependency-name: typescript
         update-types: [version-update:semver-major]
+      # type ของ Node ควรตามเวอร์ชัน Node ที่รันจริง (.nvmrc) ไม่ใช่ตัวล่าสุด — อัปเองเมื่อเปลี่ยน Node
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /web
@@ -39,6 +42,12 @@ updates:
     ignore:
       # eslint-config-next 16 ยังใช้ eslint 9 — อัป major เมื่อ Next.js รองรับ
       - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      # typescript-eslint (ผ่าน eslint-config-next) ยังไม่รองรับ TypeScript 7 — CI fail ใน PR #8
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # type ของ Node ควรตามเวอร์ชัน Node ที่รันจริง (.nvmrc = 24) — อัปเองเมื่อเปลี่ยน Node
+      - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
 
   # อัปเดต commit SHA ของ action ใน .github/workflows ให้ (เพราะ pin ด้วย SHA)
