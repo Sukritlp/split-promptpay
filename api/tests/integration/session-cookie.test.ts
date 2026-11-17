@@ -15,23 +15,27 @@ describe('refresh token cookie on register and login', () => {
   const { app } = buildTestApp();
 
   const flows = {
-    register: () => request(app).post('/auth/register').send(account),
+    register: () => request(app).post('/api/auth/register').send(account),
     login: async () => {
-      await request(app).post('/auth/register').send(account);
+      await request(app).post('/api/auth/register').send(account);
       await testPrisma.refreshToken.deleteMany(); // ให้เหลือเฉพาะ token จาก login
       return request(app)
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ email: account.email, password: account.password });
     },
   };
 
   describe.each(Object.entries(flows))('%s', (_name, flow) => {
-    it('sets an HttpOnly, Path=/auth, SameSite=Lax cookie', async () => {
+    it('sets an HttpOnly, Path=/api/auth, SameSite=Lax cookie', async () => {
       const cookie = getRefreshCookie(await flow());
 
       expect(cookie).toBeDefined();
       expect(cookie?.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
-      expect(cookie?.attributes).toMatchObject({ httponly: true, path: '/auth', samesite: 'Lax' });
+      expect(cookie?.attributes).toMatchObject({
+        httponly: true,
+        path: '/api/auth',
+        samesite: 'Lax',
+      });
     });
 
     it('is not Secure in development (so it works on http://localhost)', async () => {
@@ -64,10 +68,10 @@ describe('refresh token cookie on register and login', () => {
   });
 
   it('each login starts a separate session (new family)', async () => {
-    await request(app).post('/auth/register').send(account);
+    await request(app).post('/api/auth/register').send(account);
     const creds = { email: account.email, password: account.password };
-    await request(app).post('/auth/login').send(creds);
-    await request(app).post('/auth/login').send(creds);
+    await request(app).post('/api/auth/login').send(creds);
+    await request(app).post('/api/auth/login').send(creds);
 
     const families = new Set((await testPrisma.refreshToken.findMany()).map((r) => r.familyId));
 
@@ -76,7 +80,7 @@ describe('refresh token cookie on register and login', () => {
 
   it('does not set a cookie when login fails', async () => {
     const res = await request(app)
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'nobody@example.com', password: 'whatever1' });
 
     expect(res.status).toBe(401);
@@ -88,7 +92,7 @@ describe('cookie options', () => {
   it('adds Secure in production', async () => {
     const { app } = buildTestApp({ refreshCookie: { secure: true } });
 
-    const cookie = getRefreshCookie(await request(app).post('/auth/register').send(account));
+    const cookie = getRefreshCookie(await request(app).post('/api/auth/register').send(account));
 
     expect(cookie?.attributes.secure).toBe(true);
   });
@@ -96,7 +100,7 @@ describe('cookie options', () => {
   it('forces Secure when SameSite=None (browsers reject it otherwise)', async () => {
     const { app } = buildTestApp({ refreshCookie: { sameSite: 'none', secure: false } });
 
-    const cookie = getRefreshCookie(await request(app).post('/auth/register').send(account));
+    const cookie = getRefreshCookie(await request(app).post('/api/auth/register').send(account));
 
     expect(cookie?.attributes).toMatchObject({ samesite: 'None', secure: true });
   });
@@ -104,7 +108,7 @@ describe('cookie options', () => {
   it('uses REFRESH_TOKEN_TTL_DAYS for the expiry', async () => {
     const { app } = buildTestApp({ refreshTtlDays: 7 });
 
-    await request(app).post('/auth/register').send(account);
+    await request(app).post('/api/auth/register').send(account);
     const row = await testPrisma.refreshToken.findFirstOrThrow();
 
     expect(Math.abs(row.expiresAt.getTime() - (Date.now() + 7 * DAY_MS))).toBeLessThan(60_000);

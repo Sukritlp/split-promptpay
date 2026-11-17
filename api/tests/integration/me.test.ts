@@ -12,13 +12,13 @@ const { app, jwt } = buildTestApp();
 
 async function registerAndGetToken(): Promise<AuthResult> {
   const res = await request(app)
-    .post('/auth/register')
+    .post('/api/auth/register')
     .send({ name: 'Somchai', email: 'somchai@example.com', password: 'correct-horse-1' });
   return res.body as AuthResult;
 }
 
 function getMe(authorization?: string) {
-  const req = request(app).get('/me');
+  const req = request(app).get('/api/me');
   return authorization === undefined ? req : req.set('Authorization', authorization);
 }
 
@@ -44,7 +44,7 @@ describe('GET /me', () => {
   it('works with a token from /auth/login too', async () => {
     await registerAndGetToken();
     const login = await request(app)
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'somchai@example.com', password: 'correct-horse-1' });
 
     const res = await getMe(`Bearer ${(login.body as AuthResult).accessToken}`);

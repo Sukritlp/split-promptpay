@@ -8,14 +8,25 @@
 
 ```
 .
-├── api/                 # Backend: Node.js + TypeScript + Express
+├── api/                 # Backend: Node.js + TypeScript + Express (port 4000)
+├── web/                 # Frontend: Next.js + TypeScript + Tailwind (port 3000)
 ├── docs/                # spec และเอกสารออกแบบ
 └── docker-compose.yml   # PostgreSQL สำหรับ dev
 ```
 
+```
+Browser ──► http://localhost:3000            Next.js (web)
+               │  /api/*  ──rewrite──►  http://localhost:4000/api/*   Express (api) ──► PostgreSQL
+```
+
+browser เรียกแค่ `/api/...` ที่ origin ของเว็บเอง แล้ว Next.js ส่งต่อไปที่ API (ตั้งค่าใน [web/next.config.ts](web/next.config.ts))
+- origin เดียวกัน → **ไม่ต้องตั้ง CORS** และ cookie `SameSite=Lax` ใช้ได้
+- path ไม่ถูกตัด (`/api/...` → `/api/...`) → cookie `Path=/api/auth` ตรงกันทั้งสองฝั่ง
+- URL ของ API ตั้งด้วย `API_URL` (ฝั่ง server เท่านั้น) ซึ่ง rewrites คำนวณ **ตอน build** จึงต้องตั้งก่อน build บน Vercel
+
 ## สิ่งที่ต้องมี
 
-- Node.js 20+
+- Node.js 20.9+
 - npm
 - Docker Desktop (สำหรับ PostgreSQL)
 
@@ -32,8 +43,26 @@ cd api
 cp .env.example .env       # แล้วตั้ง JWT_ACCESS_SECRET ใหม่ (ดูวิธีสร้างในไฟล์)
 npm install                # postinstall จะรัน prisma generate ให้อัตโนมัติ
 npm run db:migrate         # สร้างตารางตาม migration ใน prisma/migrations
-npm run dev                # http://localhost:3000/health
+npm run dev                # http://localhost:4000/api/health
+
+# 3) รัน web (อีก terminal หนึ่ง)
+cd web
+npm install
+npm run dev                # http://localhost:3000 → ต้องเห็น "API พร้อมใช้งาน"
 ```
+
+## คำสั่งใน `web/`
+
+| คำสั่ง                 | ทำอะไร                                   |
+| ---------------------- | ---------------------------------------- |
+| `npm run dev`          | Next.js dev server (port 3000)           |
+| `npm run build`        | build สำหรับ production                   |
+| `npm start`            | รันจาก build                              |
+| `npm test`             | Vitest + Testing Library (jsdom)         |
+| `npm run typecheck`    | เช็ค type                                 |
+| `npm run lint`         | ESLint (กฎของ Next.js)                    |
+| `npm run format`       | จัดรูปแบบด้วย Prettier (กฎเดียวกับ api)    |
+| `npm run format:check` | เช็คการจัดรูปแบบ                          |
 
 ## คำสั่งใน `api/`
 
@@ -58,13 +87,13 @@ npm run dev                # http://localhost:3000/health
 
 | Method | Path             | Auth | คำอธิบาย |
 | ------ | ---------------- | ---- | -------- |
-| GET    | `/health`        | –    | liveness: process ยังทำงานอยู่ (ไม่เช็ค DB) |
-| GET    | `/ready`         | –    | readiness: 200 ถ้าต่อ DB ได้, 503 ถ้า DB ล่ม |
-| POST   | `/auth/register` | –    | สมัคร `{ name, email, password }` → `201 { user, accessToken }` + cookie |
-| POST   | `/auth/login`    | –    | ล็อกอิน `{ email, password }` → `200 { user, accessToken }` + cookie |
-| POST   | `/auth/refresh`  | 🍪   | แลก refresh token → `200 { user, accessToken }` + cookie ใหม่ |
-| POST   | `/auth/logout`   | 🍪   | ออกจากระบบเฉพาะอุปกรณ์นี้ → `204` (เรียกซ้ำได้) |
-| GET    | `/me`            | ✓    | ข้อมูลผู้ใช้ที่ล็อกอินอยู่ → `200 { user }` |
+| GET    | `/api/health`        | –    | liveness: process ยังทำงานอยู่ (ไม่เช็ค DB) |
+| GET    | `/api/ready`         | –    | readiness: 200 ถ้าต่อ DB ได้, 503 ถ้า DB ล่ม |
+| POST   | `/api/auth/register` | –    | สมัคร `{ name, email, password }` → `201 { user, accessToken }` + cookie |
+| POST   | `/api/auth/login`    | –    | ล็อกอิน `{ email, password }` → `200 { user, accessToken }` + cookie |
+| POST   | `/api/auth/refresh`  | 🍪   | แลก refresh token → `200 { user, accessToken }` + cookie ใหม่ |
+| POST   | `/api/auth/logout`   | 🍪   | ออกจากระบบเฉพาะอุปกรณ์นี้ → `204` (เรียกซ้ำได้) |
+| GET    | `/api/me`            | ✓    | ข้อมูลผู้ใช้ที่ล็อกอินอยู่ → `200 { user }` |
 
 - ✓ = ต้องส่ง header `Authorization: Bearer <accessToken>` (อายุ 15 นาทีตามค่าเริ่มต้น)
 - 🍪 = ใช้ cookie `refresh_token` ที่ browser แนบมาให้เอง (ต้องเรียกด้วย `credentials: 'include'`)
@@ -75,7 +104,7 @@ npm run dev                # http://localhost:3000/health
 login/register ─► body: { user, accessToken }      access token (JWT, 15 นาที) → web เก็บใน memory
                   Set-Cookie: refresh_token=...    refresh token (สุ่ม 256 bit, 30 วัน) → httpOnly cookie
 
-access token หมดอายุ ─► POST /auth/refresh ─► token เก่าถูกยกเลิก + ได้ตัวใหม่ (rotation)
+access token หมดอายุ ─► POST /api/auth/refresh ─► token เก่าถูกยกเลิก + ได้ตัวใหม่ (rotation)
 POST /auth/logout ─► ยกเลิก refresh token ของอุปกรณ์นี้ + ลบ cookie
 ```
 
@@ -83,7 +112,7 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 | --- | --- | --- |
 | รูปแบบ refresh token | สตริงสุ่ม ไม่ใช่ JWT | ต้องค้น DB ทุกครั้ง จึงยกเลิกได้จริง |
 | เก็บใน DB | SHA-256 ของ token | DB หลุดก็เอาไปใช้แทน token ไม่ได้ (token สุ่ม 256 bit จึงไม่ต้องใช้ hash แบบช้า) |
-| Cookie | `HttpOnly` `Path=/auth` `SameSite=Lax` (+`Secure` บน production) | JS อ่านไม่ได้ (กัน XSS), ส่งเฉพาะ `/auth/*`, กัน CSRF |
+| Cookie | `HttpOnly` `Path=/api/auth` `SameSite=Lax` (+`Secure` บน production) | JS อ่านไม่ได้ (กัน XSS), ส่งเฉพาะ `/api/auth/*`, กัน CSRF |
 | Rotation | token ใช้ได้ครั้งเดียว | token ที่หลุดไปมีอายุใช้งานสั้น |
 | Reuse detection | ใช้ token เก่าซ้ำ → ยกเลิกทั้ง family | แปลว่า token อาจถูกขโมย: บังคับทั้งคนร้ายและเจ้าของให้ล็อกอินใหม่ |
 | Refresh พร้อมกัน | ตัวที่สองถูกนับเป็นการใช้ซ้ำ (เข้มงวด) | ฝั่ง web ต้องรวม refresh ให้เหลือครั้งเดียว (single-flight) |
@@ -103,7 +132,7 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 | 400 | `BAD_REQUEST` | JSON พัง |
 | 401 | `INVALID_CREDENTIALS` | email หรือรหัสผ่านผิด (ไม่บอกว่าผิดอันไหน) |
 | 401 | `UNAUTHENTICATED` | ไม่ได้ส่ง token |
-| 401 | `INVALID_TOKEN` | access token ผิด/หมดอายุ → เรียก `/auth/refresh` |
+| 401 | `INVALID_TOKEN` | access token ผิด/หมดอายุ → เรียก `/api/auth/refresh` |
 | 401 | `INVALID_REFRESH_TOKEN` | refresh token ใช้ไม่ได้ → ต้องล็อกอินใหม่ |
 | 404 | `NOT_FOUND` | ไม่มี route นี้ |
 | 409 | `EMAIL_TAKEN` | email นี้สมัครแล้ว |

@@ -11,14 +11,14 @@ const { app, jwt } = buildTestApp();
 const account = { name: 'Somchai', email: 'somchai@example.com', password: 'correct-horse-1' };
 
 async function registerAndGetRefreshToken(): Promise<{ token: string; user: AuthResult['user'] }> {
-  const res = await request(app).post('/auth/register').send(account);
+  const res = await request(app).post('/api/auth/register').send(account);
   const token = getRefreshCookie(res)?.value;
   if (!token) throw new Error('register did not set a refresh cookie');
   return { token, user: (res.body as AuthResult).user };
 }
 
 function refresh(token?: string) {
-  const req = request(app).post('/auth/refresh');
+  const req = request(app).post('/api/auth/refresh');
   return token === undefined ? req : req.set('Cookie', refreshCookieHeader(token));
 }
 
@@ -37,7 +37,7 @@ function expectRejected(res: request.Response) {
   // สั่ง browser ลบ cookie (หมดอายุย้อนหลัง) ด้วย path เดียวกับตอนตั้ง
   const cookie = getRefreshCookie(res);
   expect(cookie?.value).toBe('');
-  expect(cookie?.attributes.path).toBe('/auth');
+  expect(cookie?.attributes.path).toBe('/api/auth');
   expect(new Date(cookie?.attributes.expires as string).getTime()).toBeLessThan(Date.now());
 }
 
@@ -152,7 +152,7 @@ describe('POST /auth/refresh', () => {
     it('does not affect other sessions (other devices) of the same user', async () => {
       const { token: deviceA } = await registerAndGetRefreshToken();
       const loginB = await request(app)
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ email: account.email, password: account.password });
       const deviceB = getRefreshCookie(loginB)?.value ?? '';
 

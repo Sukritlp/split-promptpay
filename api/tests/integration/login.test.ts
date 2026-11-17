@@ -10,12 +10,12 @@ const { app, jwt } = buildTestApp();
 const account = { name: 'Somchai', email: 'somchai@example.com', password: 'correct-horse-1' };
 
 function login(body: object) {
-  return request(app).post('/auth/login').send(body);
+  return request(app).post('/api/auth/login').send(body);
 }
 
 async function registerAccount(overrides: Partial<typeof account> = {}) {
   const res = await request(app)
-    .post('/auth/register')
+    .post('/api/auth/register')
     .send({ ...account, ...overrides });
   expect(res.status).toBe(201);
   return res.body as AuthResult;

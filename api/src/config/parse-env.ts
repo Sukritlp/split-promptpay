@@ -32,7 +32,7 @@ function parseNodeEnv(value: string | undefined): NodeEnv {
 }
 
 function parsePort(value: string | undefined): number {
-  const port = Number(value ?? 3000);
+  const port = Number(value ?? 4000); // 3000 เป็นของ Next.js (web)
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error(`Invalid PORT "${value}". Expected an integer between 1 and 65535`);
   }

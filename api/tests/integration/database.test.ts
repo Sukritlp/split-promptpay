@@ -24,7 +24,7 @@ describe('test database', () => {
   });
 
   it('GET /ready returns 200 against a real database', async () => {
-    const res = await request(buildTestApp().app).get('/ready');
+    const res = await request(buildTestApp().app).get('/api/ready');
 
     expect(res.status).toBe(200);
   });

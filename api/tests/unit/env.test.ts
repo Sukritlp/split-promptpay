@@ -18,7 +18,7 @@ describe('parseEnv', () => {
   it('uses defaults for optional values', () => {
     expect(parseEnv(BASE)).toEqual({
       NODE_ENV: 'development',
-      PORT: 3000,
+      PORT: 4000,
       DATABASE_URL: DB,
       JWT_ACCESS_SECRET: SECRET,
       ACCESS_TOKEN_TTL: '15m',
