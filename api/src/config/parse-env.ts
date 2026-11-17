@@ -12,7 +12,12 @@ export interface Env {
   DATABASE_URL: string;
   JWT_ACCESS_SECRET: string;
   ACCESS_TOKEN_TTL: string;
+  REFRESH_TOKEN_TTL_DAYS: number;
+  COOKIE_SAMESITE: CookieSameSite;
 }
+
+const COOKIE_SAMESITES = ['lax', 'strict', 'none'] as const;
+export type CookieSameSite = (typeof COOKIE_SAMESITES)[number];
 
 type RawEnv = Record<string, string | undefined>;
 
@@ -70,6 +75,30 @@ function parseDuration(name: string, value: string | undefined, fallback: string
   return v;
 }
 
+function parseIntInRange(
+  name: string,
+  value: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const n = Number(value ?? fallback);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new Error(`Invalid ${name} "${value}". Expected an integer between ${min} and ${max}`);
+  }
+  return n;
+}
+
+function parseSameSite(value: string | undefined): CookieSameSite {
+  const v = (value ?? 'lax').toLowerCase();
+  if (!(COOKIE_SAMESITES as readonly string[]).includes(v)) {
+    throw new Error(
+      `Invalid COOKIE_SAMESITE "${value}". Expected one of: ${COOKIE_SAMESITES.join(', ')}`,
+    );
+  }
+  return v as CookieSameSite;
+}
+
 export function parseEnv(source: RawEnv): Env {
   return {
     NODE_ENV: parseNodeEnv(source.NODE_ENV),
@@ -77,5 +106,13 @@ export function parseEnv(source: RawEnv): Env {
     DATABASE_URL: parseDatabaseUrl(source.DATABASE_URL),
     JWT_ACCESS_SECRET: parseSecret('JWT_ACCESS_SECRET', source.JWT_ACCESS_SECRET),
     ACCESS_TOKEN_TTL: parseDuration('ACCESS_TOKEN_TTL', source.ACCESS_TOKEN_TTL, '15m'),
+    REFRESH_TOKEN_TTL_DAYS: parseIntInRange(
+      'REFRESH_TOKEN_TTL_DAYS',
+      source.REFRESH_TOKEN_TTL_DAYS,
+      30,
+      1,
+      365,
+    ),
+    COOKIE_SAMESITE: parseSameSite(source.COOKIE_SAMESITE),
   };
 }

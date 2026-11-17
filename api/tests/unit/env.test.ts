@@ -15,13 +15,15 @@ function errorMessageOf(fn: () => unknown): string {
 }
 
 describe('parseEnv', () => {
-  it('uses defaults for NODE_ENV, PORT and ACCESS_TOKEN_TTL', () => {
+  it('uses defaults for optional values', () => {
     expect(parseEnv(BASE)).toEqual({
       NODE_ENV: 'development',
       PORT: 3000,
       DATABASE_URL: DB,
       JWT_ACCESS_SECRET: SECRET,
       ACCESS_TOKEN_TTL: '15m',
+      REFRESH_TOKEN_TTL_DAYS: 30,
+      COOKIE_SAMESITE: 'lax',
     });
   });
 
@@ -106,6 +108,35 @@ describe('parseEnv', () => {
 
     it.each(['30s', '15m', '1h', '7d'])('accepts "%s"', (ttl) => {
       expect(parseEnv({ ...BASE, ACCESS_TOKEN_TTL: ttl }).ACCESS_TOKEN_TTL).toBe(ttl);
+    });
+  });
+
+  describe('REFRESH_TOKEN_TTL_DAYS', () => {
+    it.each(['0', '366', '1.5', 'abc', '-1'])('rejects "%s"', (days) => {
+      expect(() => parseEnv({ ...BASE, REFRESH_TOKEN_TTL_DAYS: days })).toThrow(
+        /REFRESH_TOKEN_TTL_DAYS/,
+      );
+    });
+
+    it.each(['1', '365'])('accepts boundary "%s"', (days) => {
+      expect(parseEnv({ ...BASE, REFRESH_TOKEN_TTL_DAYS: days }).REFRESH_TOKEN_TTL_DAYS).toBe(
+        Number(days),
+      );
+    });
+  });
+
+  describe('COOKIE_SAMESITE', () => {
+    it.each([
+      ['lax', 'lax'],
+      ['strict', 'strict'],
+      ['none', 'none'],
+      ['Lax', 'lax'],
+    ])('accepts "%s"', (value, expected) => {
+      expect(parseEnv({ ...BASE, COOKIE_SAMESITE: value }).COOKIE_SAMESITE).toBe(expected);
+    });
+
+    it('rejects unknown values', () => {
+      expect(() => parseEnv({ ...BASE, COOKIE_SAMESITE: 'loose' })).toThrow(/COOKIE_SAMESITE/);
     });
   });
 });
