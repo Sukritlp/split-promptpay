@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
   // ไม่ให้ `next dev` สร้าง/แก้ไฟล์ AGENTS.md เอง (ไม่ต้องการไฟล์นี้ใน repo)
   agentRules: false,
 
+  // E2E build ไปอีกโฟลเดอร์ (.next-e2e) → รัน E2E ได้ระหว่างที่ `next dev` ใช้ .next อยู่
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   turbopack: {
     rules: {
       '*.css': {

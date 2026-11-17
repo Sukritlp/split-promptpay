@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     'build/**',
     'next-env.d.ts',
     'coverage/**',
+    '.next-e2e/**',
+    'playwright-report/**',
+    'test-results/**',
   ]),
   // ต้องอยู่ท้ายสุด: ปิดกฎของ ESLint ที่ชนกับ Prettier
   prettier,
