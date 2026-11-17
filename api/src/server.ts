@@ -1,8 +1,19 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { checkDatabase, prisma } from './db/prisma.js';
+import { createJwtService } from './lib/jwt.js';
+import { createAuthService } from './modules/auth/auth.service.js';
+import { createUsersService } from './modules/users/users.service.js';
 
-const app = createApp({ checkDb: checkDatabase });
+// composition root: จุดเดียวที่ประกอบ dependency จริงเข้าด้วยกัน
+const jwt = createJwtService({
+  secret: env.JWT_ACCESS_SECRET,
+  accessTokenTtl: env.ACCESS_TOKEN_TTL,
+});
+const authService = createAuthService({ prisma, jwt });
+const usersService = createUsersService({ prisma });
+
+const app = createApp({ checkDb: checkDatabase, authService, usersService, jwt });
 
 const server = app.listen(env.PORT, () => {
   console.log(`API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);

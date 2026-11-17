@@ -29,7 +29,7 @@ docker compose ps          # รอจนสถานะเป็น healthy
 
 # 2) รัน API
 cd api
-cp .env.example .env
+cp .env.example .env       # แล้วตั้ง JWT_ACCESS_SECRET ใหม่ (ดูวิธีสร้างในไฟล์)
 npm install                # postinstall จะรัน prisma generate ให้อัตโนมัติ
 npm run db:migrate         # สร้างตารางตาม migration ใน prisma/migrations
 npm run dev                # http://localhost:3000/health
@@ -42,22 +42,55 @@ npm run dev                # http://localhost:3000/health
 | `npm run dev`          | รันแบบ watch ด้วย tsx (แก้โค้ดแล้วรีโหลดเอง) |
 | `npm run build`        | compile TypeScript ไปที่ `dist/`            |
 | `npm start`            | รันจาก `dist/` (แบบ production)            |
-| `npm test`             | รัน test ด้วย Vitest + Supertest            |
+| `npm test`             | รัน test ทั้งหมด (unit + integration)        |
+| `npm run test:unit`    | รันเฉพาะ unit test (ไม่ต้องมี DB)            |
+| `npm run test:integration` | รันเฉพาะ integration test กับ PostgreSQL จริง |
 | `npm run typecheck`    | เช็ค type โดยไม่ build                     |
 | `npm run lint`         | ESLint                                    |
 | `npm run format`       | จัดรูปแบบโค้ดด้วย Prettier                 |
 | `npm run format:check` | เช็คว่าโค้ดถูกจัดรูปแบบแล้ว (ใช้ใน CI)      |
-| `npm run db:migrate`   | สร้าง/รัน migration บนเครื่อง dev (`prisma migrate dev`) |
+| `npm run db:migrate`   | สร้าง/รัน migration บนเครื่อง dev แล้ว generate client ใหม่ |
 | `npm run db:deploy`    | รัน migration ที่มีอยู่บน production (`prisma migrate deploy`) |
 | `npm run db:generate`  | generate Prisma Client ใหม่หลังแก้ schema   |
 | `npm run db:studio`    | เปิด Prisma Studio ดู/แก้ข้อมูลผ่านเว็บ      |
 
 ## API
 
-| Method | Path      | คำอธิบาย                              |
-| ------ | --------- | ------------------------------------- |
-| GET    | `/health` | liveness: process ยังทำงานอยู่ (ไม่เช็ค DB) |
-| GET    | `/ready`  | readiness: เช็คว่าต่อ DB ได้ — 200 ถ้าพร้อม, 503 ถ้า DB ล่ม |
+| Method | Path             | Auth | คำอธิบาย |
+| ------ | ---------------- | ---- | -------- |
+| GET    | `/health`        | –    | liveness: process ยังทำงานอยู่ (ไม่เช็ค DB) |
+| GET    | `/ready`         | –    | readiness: 200 ถ้าต่อ DB ได้, 503 ถ้า DB ล่ม |
+| POST   | `/auth/register` | –    | สมัคร `{ name, email, password }` → `201 { user, accessToken }` |
+| POST   | `/auth/login`    | –    | ล็อกอิน `{ email, password }` → `200 { user, accessToken }` |
+| GET    | `/me`            | ✓    | ข้อมูลผู้ใช้ที่ล็อกอินอยู่ → `200 { user }` |
+
+Auth ✓ = ต้องส่ง header `Authorization: Bearer <accessToken>` (token อายุ 15 นาทีตามค่าเริ่มต้น)
+
+### รูปแบบ error
+
+ทุก error ตอบเป็น JSON รูปแบบเดียวกัน:
+
+```json
+{ "error": { "code": "EMAIL_TAKEN", "message": "Email is already registered" } }
+```
+
+| Status | code | เมื่อไหร่ |
+| ------ | ---- | -------- |
+| 400 | `VALIDATION_ERROR` | body ไม่ผ่านการตรวจ (มี `details` บอกช่องที่ผิด) |
+| 400 | `BAD_REQUEST` | JSON พัง |
+| 401 | `INVALID_CREDENTIALS` | email หรือรหัสผ่านผิด (ไม่บอกว่าผิดอันไหน) |
+| 401 | `UNAUTHENTICATED` | ไม่ได้ส่ง token |
+| 401 | `INVALID_TOKEN` | token ผิด/หมดอายุ |
+| 404 | `NOT_FOUND` | ไม่มี route นี้ |
+| 409 | `EMAIL_TAKEN` | email นี้สมัครแล้ว |
+| 500 | `INTERNAL_ERROR` | bug ฝั่ง server (รายละเอียดอยู่ใน log เท่านั้น) |
+
+## Test
+
+- **unit** (`tests/unit/`): ไม่แตะ DB ใช้ dependency ปลอม
+- **integration** (`tests/integration/`): ยิง HTTP จริงผ่าน Supertest เข้า PostgreSQL จริง
+  - ใช้ DB `splitpay_test` ใน docker-compose (สร้างและ migrate ให้อัตโนมัติ) หรือกำหนดเองด้วย `TEST_DATABASE_URL`
+  - ล้างข้อมูลทุกตารางก่อนแต่ละ test และ **ไม่ยอมรัน** ถ้าชื่อ DB ไม่ลงท้ายด้วย `_test` กันลบข้อมูลจริงโดยไม่ตั้งใจ
 
 ## ฐานข้อมูล
 
