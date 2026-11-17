@@ -1,0 +1,28 @@
+// โครงสร้างฐานข้อมูล — แก้ไฟล์นี้แล้วรัน `npm run db:migrate` เพื่อสร้าง migration ใหม่
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  // tsconfig ใช้ NodeNext → import ภายในต้องลงท้าย .js
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  // null ได้: ผู้ใช้ที่สมัครผ่าน Google OAuth จะไม่มีรหัสผ่าน
+  passwordHash String?  @map("password_hash")
+  // เบอร์โทรหรือเลขบัตรประชาชน — เก็บเป็น string เพื่อไม่ให้เลข 0 นำหน้าหาย
+  promptpayId  String?  @map("promptpay_id")
+  lineUserId   String?  @unique @map("line_user_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("users")
+}
