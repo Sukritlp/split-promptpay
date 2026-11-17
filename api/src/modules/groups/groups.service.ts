@@ -41,6 +41,10 @@ export interface GroupsService {
   listMine(userId: string): Promise<GroupSummary[]>;
   /** รายละเอียดกลุ่ม — 404 ถ้าไม่มีกลุ่มนี้ หรือ user ไม่ได้เป็นสมาชิก */
   getForMember(userId: string, groupId: string): Promise<GroupDetail>;
+  /** invite code ของกลุ่ม — สมาชิกทุกคนดู/ส่งต่อได้ */
+  getInviteCode(userId: string, groupId: string): Promise<string>;
+  /** ออก code ใหม่ (ลิงก์เก่าใช้ไม่ได้ทันที) — owner เท่านั้น */
+  resetInviteCode(userId: string, groupId: string): Promise<string>;
 }
 
 export interface GroupsServiceDeps {
@@ -80,6 +84,17 @@ export function toSummary(
 export const withMemberCount = { _count: { select: { members: true } } } as const;
 
 export function createGroupsService({ prisma }: GroupsServiceDeps): GroupsService {
+  /** role ของ user ในกลุ่ม — ไม่ใช่สมาชิก/ไม่มีกลุ่ม → 404 */
+  async function requireMembership(userId: string, groupId: string): Promise<GroupRole> {
+    if (!isUuid(groupId)) throw groupNotFound();
+    const membership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
+      select: { role: true },
+    });
+    if (!membership) throw groupNotFound();
+    return membership.role;
+  }
+
   return {
     async create(userId, { name, currency }) {
       try {
@@ -149,6 +164,29 @@ export function createGroupsService({ prisma }: GroupsServiceDeps): GroupsServic
           joinedAt: m.joinedAt.toISOString(),
         })),
       };
+    },
+
+    async getInviteCode(userId, groupId) {
+      await requireMembership(userId, groupId);
+      const group = await prisma.group.findUniqueOrThrow({
+        where: { id: groupId },
+        select: { inviteCode: true },
+      });
+      return group.inviteCode;
+    },
+
+    async resetInviteCode(userId, groupId) {
+      const role = await requireMembership(userId, groupId);
+      // สมาชิกรู้อยู่แล้วว่ากลุ่มนี้มี → ตอบ 403 ได้ (ต่างจากคนนอกที่ได้ 404)
+      if (role !== 'owner') {
+        throw new HttpError(403, 'FORBIDDEN', 'Only the group owner can reset the invite link');
+      }
+      const group = await prisma.group.update({
+        where: { id: groupId },
+        data: { inviteCode: generateInviteCode() },
+        select: { inviteCode: true },
+      });
+      return group.inviteCode;
     },
   };
 }

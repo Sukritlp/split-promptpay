@@ -32,5 +32,15 @@ export function createGroupsRouter({ jwt, groupsService }: GroupsRouterDeps): Ro
     res.status(200).json({ group });
   });
 
+  router.get('/groups/:groupId/invite', async (req, res) => {
+    const code = await groupsService.getInviteCode(getAuth(req).userId, req.params.groupId);
+    res.status(200).json({ code });
+  });
+
+  router.post('/groups/:groupId/invite/reset', async (req, res) => {
+    const code = await groupsService.resetInviteCode(getAuth(req).userId, req.params.groupId);
+    res.status(200).json({ code });
+  });
+
   return router;
 }
