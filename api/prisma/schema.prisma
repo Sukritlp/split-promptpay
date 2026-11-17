@@ -1,0 +1,13 @@
+// โครงสร้างฐานข้อมูล — แก้ไฟล์นี้แล้วรัน `npm run db:migrate` เพื่อสร้าง migration ใหม่
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  // tsconfig ใช้ NodeNext → import ภายในต้องลงท้าย .js
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

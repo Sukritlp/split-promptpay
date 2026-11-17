@@ -14,3 +14,6 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# Prisma client ที่ generate อัตโนมัติ (สร้างใหม่ด้วย npm run db:generate)
+api/src/generated/
