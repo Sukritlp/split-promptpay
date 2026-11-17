@@ -17,10 +17,30 @@ export interface GroupSummary {
   createdAt: string;
 }
 
+export interface GroupMemberView {
+  userId: string;
+  name: string;
+  role: GroupRole;
+  joinedAt: string;
+}
+
+export interface GroupDetail {
+  id: string;
+  name: string;
+  currency: string;
+  ownerId: string;
+  myRole: GroupRole;
+  createdAt: string;
+  /** เรียงตามลำดับที่เข้าร่วม — ไม่มี email (สมาชิกคนอื่นไม่จำเป็นต้องเห็น) */
+  members: GroupMemberView[];
+}
+
 export interface GroupsService {
   create(userId: string, input: CreateGroupInput): Promise<GroupSummary>;
   /** กลุ่มที่ user เป็นสมาชิก เรียงจากที่เข้าร่วมล่าสุด */
   listMine(userId: string): Promise<GroupSummary[]>;
+  /** รายละเอียดกลุ่ม — 404 ถ้าไม่มีกลุ่มนี้ หรือ user ไม่ได้เป็นสมาชิก */
+  getForMember(userId: string, groupId: string): Promise<GroupDetail>;
 }
 
 export interface GroupsServiceDeps {
@@ -93,6 +113,42 @@ export function createGroupsService({ prisma }: GroupsServiceDeps): GroupsServic
         orderBy: [{ joinedAt: 'desc' }, { groupId: 'asc' }],
       });
       return memberships.map((m) => toSummary(m.group, m.role));
+    },
+
+    async getForMember(userId, groupId) {
+      if (!isUuid(groupId)) throw groupNotFound();
+
+      // ค้นจาก membership ของคนที่เรียก: ไม่ใช่สมาชิก = ไม่เจอแถว = 404 (ตรวจสิทธิ์ในคำสั่งเดียว)
+      const membership = await prisma.groupMember.findUnique({
+        where: { groupId_userId: { groupId, userId } },
+        include: {
+          group: {
+            include: {
+              members: {
+                include: { user: { select: { name: true } } },
+                orderBy: [{ joinedAt: 'asc' }, { userId: 'asc' }],
+              },
+            },
+          },
+        },
+      });
+      if (!membership) throw groupNotFound();
+
+      const { group } = membership;
+      return {
+        id: group.id,
+        name: group.name,
+        currency: group.currency,
+        ownerId: group.ownerId,
+        myRole: membership.role,
+        createdAt: group.createdAt.toISOString(),
+        members: group.members.map((m) => ({
+          userId: m.userId,
+          name: m.user.name,
+          role: m.role,
+          joinedAt: m.joinedAt.toISOString(),
+        })),
+      };
     },
   };
 }

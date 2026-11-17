@@ -27,5 +27,10 @@ export function createGroupsRouter({ jwt, groupsService }: GroupsRouterDeps): Ro
     res.status(200).json({ groups });
   });
 
+  router.get('/groups/:groupId', async (req, res) => {
+    const group = await groupsService.getForMember(getAuth(req).userId, req.params.groupId);
+    res.status(200).json({ group });
+  });
+
   return router;
 }
