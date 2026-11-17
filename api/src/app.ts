@@ -1,3 +1,4 @@
+import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createAuthRouter, type AuthRouterDeps } from './modules/auth/auth.routes.js';
@@ -16,6 +17,7 @@ export function createApp(deps: AppDeps): Express {
 
   app.disable('x-powered-by'); // ไม่บอกคนนอกว่าใช้ Express
   app.use(express.json({ limit: '100kb' }));
+  app.use(cookieParser());
 
   app.use(createHealthRouter(deps));
   app.use(createAuthRouter(deps));
