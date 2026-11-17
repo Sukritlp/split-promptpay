@@ -21,7 +21,6 @@ model User {
   // เบอร์โทรหรือเลขบัตรประชาชน — เก็บเป็น string เพื่อไม่ให้เลข 0 นำหน้าหาย
   promptpayId  String?  @map("promptpay_id")
   lineUserId   String?  @unique @map("line_user_id")
-  nickname     String?
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
