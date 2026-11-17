@@ -25,6 +25,9 @@ function resolveApiUrl(): string {
 const apiUrl = resolveApiUrl();
 
 const nextConfig: NextConfig = {
+  // ไม่ให้ `next dev` สร้าง/แก้ไฟล์ AGENTS.md เอง (ไม่ต้องการไฟล์นี้ใน repo)
+  agentRules: false,
+
   turbopack: {
     rules: {
       '*.css': {
