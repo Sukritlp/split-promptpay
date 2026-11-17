@@ -65,6 +65,9 @@ npm run dev                # http://localhost:3000 → ต้องเห็น 
 | `npm run lint`         | ESLint (กฎของ Next.js)                    |
 | `npm run format`       | จัดรูปแบบด้วย Prettier (กฎเดียวกับ api)    |
 | `npm run format:check` | เช็คการจัดรูปแบบ                          |
+| `npm run test:e2e`     | Playwright E2E (Chromium + iPhone/WebKit) |
+| `npm run test:e2e:ui`  | Playwright แบบมี UI ดูทีละ step            |
+| `npm run test:e2e:report` | เปิด report ล่าสุด (รวม trace เมื่อ fail) |
 
 ## คำสั่งใน `api/`
 
@@ -158,19 +161,30 @@ POST /auth/logout ─► ยกเลิก refresh token ของอุปก�
 
 ## Test
 
-- **unit** (`tests/unit/`): ไม่แตะ DB ใช้ dependency ปลอม
-- **integration** (`tests/integration/`): ยิง HTTP จริงผ่าน Supertest เข้า PostgreSQL จริง
+**api**
+- **unit** (`api/tests/unit/`): ไม่แตะ DB ใช้ dependency ปลอม
+- **integration** (`api/tests/integration/`): ยิง HTTP จริงผ่าน Supertest เข้า PostgreSQL จริง
   - ใช้ DB `splitpay_test` ใน docker-compose (สร้างและ migrate ให้อัตโนมัติ) หรือกำหนดเองด้วย `TEST_DATABASE_URL`
   - ล้างข้อมูลทุกตารางก่อนแต่ละ test และ **ไม่ยอมรัน** ถ้าชื่อ DB ไม่ลงท้ายด้วย `_test` กันลบข้อมูลจริงโดยไม่ตั้งใจ
 
+**web**
+- **unit/component** (`web/tests/`): Vitest + Testing Library ใน jsdom, fetch ปลอม
+- **E2E** (`web/e2e/`): Playwright บนเบราว์เซอร์จริง (Chromium + iPhone 15/WebKit)
+  - ต้องเปิด PostgreSQL (`docker compose up -d`) แล้วรัน `cd web && npm run test:e2e` — Playwright build และสตาร์ท api/web ให้เอง
+  - **แยกจาก dev ทั้งหมด**: web `:3100`, api `:4100`, DB `splitpay_e2e`, build ไปที่ `.next-e2e` → รันได้แม้เปิด `npm run dev` ค้างไว้
+  - ล้างข้อมูลก่อนรันทุกครั้ง และ **ไม่ยอมรัน** ถ้าชื่อ DB ไม่ลงท้ายด้วย `_e2e`
+  - ตั้ง `ACCESS_TOKEN_TTL=5s` เพื่อทดสอบการ refresh เมื่อ access token หมดอายุกลางการใช้งาน
+  - ครอบ: สมัคร/ล็อกอิน/ออกจากระบบ, reload แล้วยังล็อกอิน, **2 tab reload พร้อมกันไม่หลุด** (Web Locks), open redirect, cookie HttpOnly, ไม่มี token ใน storage
+
 ## CI (GitHub Actions)
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) รันทุก PR และทุกครั้งที่ push เข้า `main` — ต้องผ่านทั้งสอง job ถึงจะ merge ได้
+[.github/workflows/ci.yml](.github/workflows/ci.yml) รันทุก PR และทุกครั้งที่ push เข้า `main` — `api` และ `web` ต้องผ่านถึงจะ merge ได้
 
 | job | ตรวจอะไร |
 | --- | --- |
 | `api` | format → lint → typecheck → migrate DB ใหม่ → **drift check** → unit test → integration test (PostgreSQL จริงใน service container) → build |
 | `web` | format → lint → typecheck → test → build |
+| `e2e` | Playwright บน Chromium + iPhone (WebKit) กับ web production build + api + PostgreSQL — fail แล้วมี report/trace ให้ดาวน์โหลด (ยังไม่เป็น required check) |
 
 - **Drift check** (`npm run db:check`): เทียบ DB ที่สร้างจาก `prisma/migrations` ล้วนๆ กับ `schema.prisma` — ถ้าแก้ schema แต่ลืมสร้าง migration, CI จะ fail
 - Action ทุกตัว **pin ด้วย commit SHA** (กัน tag ถูกเลื่อนไปชี้โค้ดอื่น) และ [Dependabot](.github/dependabot.yml) เปิด PR อัปเดตให้ทุกวันจันทร์
