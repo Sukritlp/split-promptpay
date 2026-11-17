@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../src/app.js';
-import type { HealthResponse, ReadyResponse } from '../src/routes/health.js';
+import { createApp } from '../../src/app.js';
+import type { HealthResponse, ReadyResponse } from '../../src/routes/health.js';
 
 const dbUp = () => Promise.resolve();
 const dbDown = () => Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:5432'));

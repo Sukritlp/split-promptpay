@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEnv } from '../src/config/parse-env.js';
+import { parseEnv } from '../../src/config/parse-env.js';
 
 const DB = 'postgresql://user:secret@localhost:5432/app';
 
